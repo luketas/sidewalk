@@ -1,0 +1,53 @@
+name: Sidewalk
+options:
+  bundleIdPrefix: com.lucasfranco
+  deploymentTarget:
+    iOS: '26.0'
+packages:
+  WebRTC:
+    url: https://github.com/stasel/WebRTC.git
+    exactVersion: 153.0.0
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: '0.1.0'
+    CURRENT_PROJECT_VERSION: 10
+targets:
+  Sidewalk:
+    type: application
+    platform: iOS
+    sources: [Sidewalk]
+    dependencies:
+      - package: WebRTC
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lucasfranco.sidewalk
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Sidewalk
+        INFOPLIST_KEY_NSCameraUsageDescription: Scan the private connection code displayed by your Mac.
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: Speak naturally with your voice companion while you work.
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: Connect securely to the companion running on your Mac.
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        TARGETED_DEVICE_FAMILY: '1'
+    info:
+      path: Sidewalk/Info.plist
+      properties:
+        UIBackgroundModes: [audio]
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+  SidewalkTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [SidewalkTests]
+    dependencies:
+      - target: Sidewalk
+schemes:
+  Sidewalk:
+    build:
+      targets:
+        Sidewalk: all
+        SidewalkTests: [test]
+    test:
+      targets: [SidewalkTests]

@@ -1,0 +1,42 @@
+{
+  "name": "sidewalk-companion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "tsx --test packages/bridge/tests/*.test.ts",
+    "check": "npm run build && npm run check:test-types && npm test",
+    "start": "node dist/bridge/src/main.js",
+    "setup": "node dist/bridge/src/setup.js",
+    "dev": "tsx packages/bridge/src/main.ts",
+    "terminal": "node dist/bridge/src/terminal.js",
+    "personal": "node dist/bridge/src/personal.js",
+    "postinstall": "node scripts/prepare-runtime.mjs",
+    "format": "prettier --write packages scripts package.json \"tsconfig*.json\"",
+    "format:check": "prettier --check packages scripts package.json \"tsconfig*.json\"",
+    "check:test-types": "tsc -p tsconfig.tests.json",
+    "eval:intent": "tsx scripts/evaluate-intent.ts",
+    "doctor": "node scripts/doctor.mjs",
+    "pair": "node scripts/pair.mjs",
+    "configure-key": "node scripts/configure-key.mjs",
+    "autostart": "node scripts/autostart.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "node-pty": "1.1.0",
+    "ws": "8.21.3",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/ws": "^8.18.0",
+    "prettier": "3.9.6",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2"
+  },
+  "license": "MIT"
+}
