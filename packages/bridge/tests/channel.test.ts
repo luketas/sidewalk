@@ -39,7 +39,11 @@ test(
             const message = JSON.parse(buffer.slice(0, i));
             buffer = buffer.slice(i + 1);
             if (message.type === "register") resolve(socket);
-            if (["recovery_report", "transcript_ack"].includes(message.type)) {
+            if (
+              ["report", "recovery_report", "transcript_ack"].includes(
+                message.type,
+              )
+            ) {
               reports.push(message);
               socket.write(
                 JSON.stringify(
@@ -203,6 +207,34 @@ test(
       });
       assert.equal(reports.at(-1)!.type, "transcript_ack");
       assert.equal(reports.at(-1)!.batchID, "voice-batch");
+      const tools = await client.listTools();
+      assert.ok(
+        tools.tools.find((t) => t.name === "reply")?.inputSchema.properties
+          ?.thread_title,
+      );
+      await client.callTool({
+        name: "reply",
+        arguments: {
+          request_id: "request-a",
+          kind: "result",
+          text: "Found the login issue",
+          thread_title: "Login investigation",
+        },
+      });
+      assert.equal(reports.at(-1)!.type, "report");
+      assert.equal(reports.at(-1)!.threadTitle, "Login investigation");
+      assert.equal(reports.at(-1)!.threadID, "thread-a");
+      await client.callTool({
+        name: "reply",
+        arguments: {
+          request_id: "request-a",
+          kind: "result",
+          text: "The answer still arrives",
+          thread_title: "x".repeat(101),
+        },
+      });
+      assert.equal(reports.at(-1)!.text, "The answer still arrives");
+      assert.equal(reports.at(-1)!.threadTitle, undefined);
     } finally {
       await client.close();
       bridgeSocket?.destroy();

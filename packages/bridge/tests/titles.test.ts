@@ -54,3 +54,118 @@ test("short matching replies are not repeated, while other threads and older res
   );
   assert.equal(alreadySpoken(s, "A different answer", "one", "one"), false);
 });
+
+test("Claude reply names an untitled thread atomically and preserves established names", () => {
+  const s = new Store();
+  try {
+    const t = s.createThread("phone", "create", "", "project", true);
+    s.register(t.id, t.sessionID, t.epoch);
+    const task = s.enqueue("phone", "task", t.id, "Investigate login", 1);
+    s.claimNext();
+    s.report(
+      t.id,
+      t.epoch,
+      task.id,
+      "accepted",
+      "Looking into it",
+      "ack",
+      undefined,
+      "Login investigation",
+    );
+    assert.equal(s.thread(t.id).name, "Login investigation");
+    s.report(
+      t.id,
+      t.epoch,
+      task.id,
+      "accepted",
+      "Looking into it",
+      "ack",
+      undefined,
+      "Login investigation",
+    );
+    assert.equal(
+      s.events(0).filter((e) => e.kind === "thread.renamed").length,
+      1,
+    );
+    s.report(
+      t.id,
+      t.epoch,
+      task.id,
+      "result",
+      "Found the issue",
+      "result",
+      undefined,
+      "Different title",
+    );
+    assert.equal(s.thread(t.id).name, "Login investigation");
+    assert.equal(s.task(task.id).status, "completed");
+  } finally {
+    s.db.close();
+  }
+});
+
+test("invalid titles cannot lose a reply or rename another session", () => {
+  const s = new Store();
+  try {
+    const a = s.createThread("phone", "a", "", "project", true);
+    const b = s.createThread("phone", "b", "Chosen title", "project", true);
+    s.register(a.id, a.sessionID, a.epoch);
+    s.register(b.id, b.sessionID, b.epoch);
+    const task = s.enqueue("phone", "task", a.id, "Investigate login", 1);
+    s.claimNext();
+    assert.throws(
+      () =>
+        s.report(
+          b.id,
+          b.epoch,
+          task.id,
+          "accepted",
+          "Looking",
+          "wrong",
+          undefined,
+          "Hijacked",
+        ),
+      /different thread/,
+    );
+    assert.throws(
+      () =>
+        s.report(
+          a.id,
+          a.epoch + 1,
+          task.id,
+          "accepted",
+          "Looking",
+          "stale",
+          undefined,
+          "Stale",
+        ),
+      /different thread/,
+    );
+    assert.equal(s.thread(b.id).name, "Chosen title");
+    s.report(
+      a.id,
+      a.epoch,
+      task.id,
+      "accepted",
+      "Looking",
+      "invalid",
+      undefined,
+      "Bad\nname",
+    );
+    assert.equal(s.thread(a.id).name, "New thread");
+    s.report(
+      a.id,
+      a.epoch,
+      task.id,
+      "result",
+      "Done",
+      "long",
+      undefined,
+      "x".repeat(101),
+    );
+    assert.equal(s.task(task.id).status, "completed");
+    assert.equal(s.thread(a.id).name, "New thread");
+  } finally {
+    s.db.close();
+  }
+});

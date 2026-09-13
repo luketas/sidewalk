@@ -44,7 +44,8 @@ struct BridgeClient {
             throw BridgeError.message(detail?["message"] ?? "Your Mac could not complete the request.")
         }
         let decoded = try JSONDecoder().decode(T.self, from: data)
-        if let outboxKey { try RequestOutbox.shared.resolve(outboxKey) }
+        // A local cleanup failure must not turn a confirmed server acceptance into a failed send.
+        if let outboxKey { try? RequestOutbox.shared.resolve(outboxKey) }
         return decoded
     }
     func speech(taskID: String, replyID: String? = nil) async throws -> Data {

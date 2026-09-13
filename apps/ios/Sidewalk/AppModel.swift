@@ -126,8 +126,15 @@ final class AppModel {
     func sendText(_ text: String) async -> Bool {
         guard let client, let threadID = state.focus.threadID, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
         do {
-            let _: WorkTask = try await client.request("v1/tasks", body: ["commandID": UUID().uuidString, "threadID": threadID, "text": text, "sourceRevision": 0, "focusEpoch": state.focus.epoch])
-            error = nil; await refresh(); return true
+            let accepted: WorkTask = try await client.request("v1/tasks", body: ["commandID": UUID().uuidString, "threadID": threadID, "text": text, "sourceRevision": 0, "focusEpoch": state.focus.epoch])
+            // Acceptance is the send boundary. History/network refresh must not keep
+            // the submitted text in the composer or delay the next message.
+            if credential?.deviceID == client.credential.deviceID {
+                if !state.tasks.contains(where: { $0.id == accepted.id }) { state.tasks.append(accepted) }
+                error = nil
+                Task { await refresh() }
+            }
+            return true
         } catch { self.error = error.localizedDescription; return false }
     }
     func decide(_ permission: ToolPermission, allow: Bool) async {

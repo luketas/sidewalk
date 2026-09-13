@@ -534,6 +534,7 @@ export class Launcher {
               m.text,
               m.eventID,
               m.speech,
+              m.threadTitle,
             );
             socket.write(
               JSON.stringify({ type: "ack", eventID: m.eventID, task }) + "\n",

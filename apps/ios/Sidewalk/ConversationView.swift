@@ -1,6 +1,7 @@
 import SwiftUI
 struct ConversationView: View {
-    @State private var draft = ""
+    @State private var draft = ComposerDraft()
+    @FocusState private var composerFocused: Bool
     @State private var sendingText = false
     @State private var followingConversation = true
     @Bindable var model: AppModel
@@ -78,13 +79,15 @@ struct ConversationView: View {
                     }
                 }.padding(.horizontal, 28).padding(.bottom, 28)
             }
+            .scrollDismissesKeyboard(.interactively)
             .onScrollPhaseChange { _, phase in
                 if phase == .interacting { followingConversation = false }
             }
             .onChange(of: model.messages.last?.seq) { _, _ in
                 if followingConversation { withAnimation(.easeOut(duration: 0.18)) { scroll.scrollTo("conversationBottom", anchor: .bottom) } }
             }
-            .onChange(of: model.state.focus.threadID) { _, _ in followingConversation = true; scroll.scrollTo("conversationBottom", anchor: .bottom) }
+            .onChange(of: model.state.focus.threadID) { _, _ in draft.reset(); composerFocused = false; followingConversation = true; scroll.scrollTo("conversationBottom", anchor: .bottom) }
+            .onChange(of: model.credential?.deviceID) { _, _ in draft.reset(); composerFocused = false }
             .overlay(alignment: .bottomTrailing) {
                 if !followingConversation {
                     Button("Latest", systemImage: "arrow.down") { followingConversation = true; withAnimation { scroll.scrollTo("conversationBottom", anchor: .bottom) } }
@@ -130,15 +133,27 @@ struct ConversationView: View {
         VStack(spacing: 14) {
             if model.focused != nil {
                 HStack(alignment: .bottom, spacing: 12) {
-                    TextField("Message Claude…", text: $draft, axis: .vertical).lineLimit(1...4)
+                    TextField("Message Claude…", text: Binding(get: { draft.text }, set: { draft.edit($0) }), axis: .vertical).lineLimit(1...4)
+                        .focused($composerFocused)
                         .font(.body).accessibilityIdentifier("messageComposer")
                     Button {
-                        let message = draft; sendingText = true
-                        Task { if await model.sendText(message) { draft = ""; followingConversation = true }; sendingText = false }
+                        let submission = draft.submission; sendingText = true
+                        Task {
+                            if await model.sendText(submission.text) {
+                                if draft.accept(submission) { composerFocused = false }
+                                followingConversation = true
+                            }
+                            sendingText = false
+                        }
                     } label: { Image(systemName: "arrow.up.circle.fill").font(.system(size: 30)).foregroundStyle(Palette.teal) }
-                        .disabled(sendingText || !model.online || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        .accessibilityLabel("Send message")
+                        .disabled(sendingText || !model.online || draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .accessibilityLabel("Send message").accessibilityIdentifier("sendMessage")
                 }.padding(14).background(.white, in: RoundedRectangle(cornerRadius: 18))
+            }
+            if composerFocused {
+                Button("Hide keyboard", systemImage: "keyboard.chevron.compact.down") { composerFocused = false }
+                    .font(.caption).frame(maxWidth: .infinity, alignment: .trailing).frame(minHeight: 44)
+                    .accessibilityIdentifier("hideKeyboard")
             }
             if model.inCall {
                 if model.playingReply {
@@ -151,7 +166,7 @@ struct ConversationView: View {
                     Button { Task { await model.end() } } label: { Label("End", systemImage: "phone.down.fill").frame(maxWidth: .infinity).frame(height: 58) }.foregroundStyle(.white).background(Palette.ink, in: Capsule()).disabled(model.phase == .ending)
                 }
             } else {
-                Button { model.credential == nil ? (model.sheet = .settings) : model.talk() } label: {
+                Button { composerFocused = false; model.credential == nil ? (model.sheet = .settings) : model.talk() } label: {
                     Label(model.credential == nil ? "Connect your Mac" : "Talk", systemImage: model.credential == nil ? "laptopcomputer" : "waveform").font(.system(size: 17, weight: .semibold)).frame(maxWidth: .infinity).frame(height: 60)
                 }.foregroundStyle(.white).background(Palette.teal, in: Capsule()).accessibilityIdentifier("talkButton")
             }

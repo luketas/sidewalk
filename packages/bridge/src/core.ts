@@ -484,6 +484,7 @@ export class Store extends EventEmitter {
     text: string,
     eventID: string,
     speech?: string,
+    threadTitle?: string,
   ): Task {
     return this.command(
       eventID,
@@ -495,6 +496,7 @@ export class Store extends EventEmitter {
         reportKind: kind,
         text,
         speech,
+        threadTitle,
       },
       () => {
         const thread = this.thread(threadID),
@@ -535,6 +537,20 @@ export class Store extends EventEmitter {
           task.replyKind = kind;
           task.reportedAt = Date.now();
           task.speech = speech?.trim().slice(0, 4000);
+        }
+        // Claude's channel replies do not always produce native ai-title records.
+        // Name only an untitled thread, inside the validated report transaction.
+        const title = typeof threadTitle === "string" ? threadTitle.trim() : "";
+        if (
+          thread.nameFromClaude &&
+          thread.name === "New thread" &&
+          title &&
+          title.length <= 100 &&
+          !/[\x00-\x1f\x7f]/.test(title)
+        ) {
+          thread.name = title;
+          this.put("thread", thread.id, thread);
+          this.event("thread.renamed", { id: thread.id, name: title });
         }
         this.put("task", task.id, task);
         this.event("task." + kind, task);
