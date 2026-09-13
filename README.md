@@ -1,5 +1,7 @@
 # Sidewalk
 
+![Sidewalk: ask Claude Code by voice from your iPhone and hear its answer from your Mac.](assets/sidewalk-voice-banner.png)
+
 **Talk to Claude Code on your Mac, from your iPhone.**
 
 Sidewalk is an open-source, self-hosted voice companion. Start a conversation, ask Claude to work, hear its answer, and continue later from the saved chat. A voice host handles conversation and conveys Claude's progress and answers; Claude Code does the work on your Mac.
