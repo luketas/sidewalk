@@ -1,21 +1,23 @@
 import { spawn } from "node:child_process";
-import { mkdirSync, realpathSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import {
   personalEnvironment,
   readIndividualIdentity,
   bindProfile,
+  profileDirectory,
 } from "./account.js";
 
 const root = resolve(".local/accounts/personal");
-const configDirectory = join(root, "claude");
+const requestedConfigDirectory = join(root, "claude");
 const directory = join(root, "bridge");
 const workspace = join(root, "playground");
-for (const path of [root, configDirectory, directory, workspace])
+for (const path of [root, requestedConfigDirectory, directory, workspace])
   mkdirSync(path, { recursive: true, mode: 0o700 });
+const configDirectory = profileDirectory(directory, requestedConfigDirectory);
 const claude = process.env.SIDEWALK_CLAUDE ?? "claude";
 const env: NodeJS.ProcessEnv = {
-  ...personalEnvironment(realpathSync(configDirectory)),
+  ...personalEnvironment(configDirectory),
   SIDEWALK_PERSONAL_MODE: "1",
   SIDEWALK_DATA_DIR: directory,
   SIDEWALK_PORT: process.env.SIDEWALK_PERSONAL_PORT ?? "17842",

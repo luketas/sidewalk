@@ -1,11 +1,27 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 
 export interface ClaudeProfile {
   configDirectory: string;
   identity: string;
+}
+
+// Claude uses the literal config path as its Keychain namespace. Preserve the
+// bound path after a repo move when a compatibility link reaches the same files.
+export function profileDirectory(directory: string, requested: string): string {
+  const canonical = realpathSync(requested);
+  const binding = join(directory, "claude-profile.json");
+  if (existsSync(binding)) {
+    const prior = JSON.parse(readFileSync(binding, "utf8")) as ClaudeProfile;
+    if (
+      existsSync(prior.configDirectory) &&
+      realpathSync(prior.configDirectory) === canonical
+    )
+      return prior.configDirectory;
+  }
+  return canonical;
 }
 
 // The personal profile uses Claude's own login and Keychain namespace. Never

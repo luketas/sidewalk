@@ -1,10 +1,20 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+  readFileSync,
+  mkdirSync,
+  renameSync,
+  symlinkSync,
+  realpathSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   bindProfile,
+  profileDirectory,
   individualIdentity,
   personalEnvironment,
   verifyProfile,
@@ -115,5 +125,36 @@ test("launcher checks the current individual account before reserving or spawnin
   } finally {
     store.db.close();
     rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("relocation preserves the bound Keychain path only for the same physical profile", () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "sw-move-")));
+  try {
+    const before = join(root, "before"),
+      after = join(root, "after"),
+      other = join(root, "other");
+    mkdirSync(before);
+    mkdirSync(other);
+    const profile = { configDirectory: before, identity: "same-account" };
+    bindProfile(root, profile);
+    renameSync(before, after);
+    symlinkSync(after, before);
+    assert.equal(profileDirectory(root, after), before);
+    bindProfile(root, {
+      ...profile,
+      configDirectory: profileDirectory(root, after),
+    });
+    assert.equal(profileDirectory(root, other), other);
+    assert.throws(
+      () =>
+        bindProfile(root, {
+          ...profile,
+          configDirectory: profileDirectory(root, other),
+        }),
+      /different Claude profile/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });

@@ -11,6 +11,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import {
   bindProfile,
+  profileDirectory,
   readIndividualIdentity,
   type ClaudeProfile,
 } from "./account.js";
@@ -36,7 +37,10 @@ export function config(): Config {
       throw Error(
         "Use npm run personal -- start to select the isolated personal profile.",
       );
-    const configDirectory = realpathSync(process.env.CLAUDE_CONFIG_DIR);
+    const configDirectory = profileDirectory(
+      directory,
+      process.env.CLAUDE_CONFIG_DIR,
+    );
     claudeProfile = {
       configDirectory,
       identity: readIndividualIdentity(claude, configDirectory),
