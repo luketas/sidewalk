@@ -4,9 +4,14 @@ struct ConversationView: View {
     @FocusState private var composerFocused: Bool
     @State private var sendingText = false
     @State private var followingConversation = true
+    @State private var threadsOpen = false
+    @GestureState private var drawerDrag: CGFloat = 0
     @Bindable var model: AppModel
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 43
     var body: some View {
+        GeometryReader { geometry in
+        let drawerWidth = min(geometry.size.width * 0.86, 360)
+        ZStack(alignment: .leading) {
         VStack(spacing: 0) {
             header
             Text(model.status).font(.system(size: 14)).foregroundStyle(Palette.quiet)
@@ -105,21 +110,78 @@ struct ConversationView: View {
             case .settings: SettingsSheet(model: model)
             }
         }
+        .allowsHitTesting(!threadsOpen)
+        .accessibilityHidden(threadsOpen)
+        if threadsOpen || drawerDrag > 0 {
+            Color.black.opacity(0.18 * drawerProgress(width: drawerWidth))
+                .ignoresSafeArea()
+                .onTapGesture { closeThreads() }
+                .accessibilityLabel("Close threads")
+            ThreadsDrawer(model: model, close: closeThreads)
+                .frame(width: drawerWidth)
+                .offset(x: threadsOpen ? min(0, drawerDrag) : -drawerWidth + drawerDrag)
+                .transition(.move(edge: .leading))
+        }
+        Color.clear
+            .frame(width: 24)
+            .contentShape(Rectangle())
+            .allowsHitTesting(!threadsOpen)
+            .gesture(openDrawerGesture(width: drawerWidth))
+            .accessibilityHidden(true)
+        }
+        .simultaneousGesture(closeDrawerGesture(width: drawerWidth))
+        }
     }
     private var header: some View {
         HStack {
+            Button { openThreads() } label: {
+                Image(systemName: "line.3.horizontal").frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Open threads")
+            .accessibilityIdentifier("threadsMenuButton")
             Text("sidewalk").font(.system(size: 24, weight: .semibold, design: .serif)).tracking(-0.7)
             Spacer()
-            Button { model.sheet = .threads } label: {
-                HStack(spacing: 6) { Text(model.focused?.name ?? "Threads").lineLimit(1); Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)) }
-                    .font(.system(size: 12, weight: .medium)).padding(.horizontal, 13).frame(height: 44).background(.white.opacity(0.7), in: Capsule())
-            }.accessibilityLabel("Choose or create a thread").accessibilityIdentifier("threadsButton")
             Button { Task { _ = await model.createThread() } } label: {
                 Group { if model.busy { ProgressView() } else { Image(systemName: "plus") } }.frame(width: 44, height: 44)
             }.disabled(model.busy || !model.online || model.state.projects.isEmpty)
                 .accessibilityLabel("New thread").accessibilityIdentifier("quickNewThread")
             Button { model.sheet = .settings } label: { Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44) }.accessibilityLabel("Connection and settings")
         }.padding(.horizontal, 25).padding(.top, 12).padding(.bottom, 12)
+    }
+    private func openThreads() {
+        composerFocused = false
+        withAnimation(.snappy(duration: 0.24)) { threadsOpen = true }
+    }
+    private func closeThreads() {
+        withAnimation(.snappy(duration: 0.24)) { threadsOpen = false }
+    }
+    private func drawerProgress(width: CGFloat) -> CGFloat {
+        guard width > 0 else { return 0 }
+        return threadsOpen ? max(0, min(1, 1 + drawerDrag / width)) : max(0, min(1, drawerDrag / width))
+    }
+    private func openDrawerGesture(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 12)
+            .updating($drawerDrag) { value, state, _ in
+                guard value.translation.width > 0, abs(value.translation.width) > abs(value.translation.height) else { return }
+                state = min(width, value.translation.width)
+            }
+            .onEnded { value in
+                guard value.translation.width > 70 || value.predictedEndTranslation.width > width * 0.45 else { return }
+                openThreads()
+            }
+    }
+    private func closeDrawerGesture(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 12)
+            .updating($drawerDrag) { value, state, _ in
+                guard threadsOpen, value.translation.width < 0, abs(value.translation.width) > abs(value.translation.height) else { return }
+                state = max(-width, value.translation.width)
+            }
+            .onEnded { value in
+                guard threadsOpen,
+                      value.translation.width < -70 || value.predictedEndTranslation.width < -width * 0.45
+                else { return }
+                closeThreads()
+            }
     }
     private var voiceMotif: some View {
         ZStack {

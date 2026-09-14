@@ -3,6 +3,29 @@ import SwiftUI
 @testable import Sidewalk
 
 @MainActor final class ConversationLayoutTests: XCTestCase {
+    func testThreadsDrawerRendersThreadList() async throws {
+        let model = AppModel(); model.credential = nil; model.online = true
+        var state = BridgeState.empty
+        state.projects = [Project(id: "p", name: "Sidewalk")]
+        state.threads = [
+            WorkThread(id: "one", name: "Login investigation", projectID: "p", sessionID: "s1", epoch: 1, status: "ready", detail: "Claude is ready", createdAt: 1),
+            WorkThread(id: "two", name: "Voice latency", projectID: "p", sessionID: "s2", epoch: 1, status: "working", detail: "Claude is working", createdAt: 2)
+        ]
+        state.focus = Focus(threadID: "two", epoch: 1)
+        model.applyState(state)
+        let host = UIHostingController(rootView: ThreadsDrawer(model: model, close: {}))
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 360, height: 956)
+        window.rootViewController = host; window.makeKeyAndVisible(); host.view.frame = window.bounds
+        try await Task.sleep(for: .milliseconds(300)); host.view.layoutIfNeeded()
+        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in host.view.drawHierarchy(in: host.view.bounds, afterScreenUpdates: true) }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("sidewalk-threads-drawer.png")
+        try XCTUnwrap(image.pngData()).write(to: url)
+        print("DRAWER_EVIDENCE_PATH=\(url.path)")
+        XCTAssertGreaterThan(try XCTUnwrap(image.pngData()).count, 10_000)
+        window.isHidden = true
+    }
     func testConversationHistoryRemainsReadable() async throws {
         let model = AppModel(); model.credential = nil
         var state = BridgeState.empty

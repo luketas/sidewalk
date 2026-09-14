@@ -1,4 +1,64 @@
 import SwiftUI
+struct ThreadsDrawer: View {
+    @Bindable var model: AppModel
+    let close: () -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Your threads").font(.system(size: 26, weight: .regular, design: .serif))
+                Spacer()
+                Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                    .accessibilityLabel("Close threads")
+            }.padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 8)
+            Button {
+                Task { if await model.createThread() { close() } }
+            } label: {
+                HStack {
+                    Label("New thread", systemImage: "square.and.pencil")
+                    Spacer()
+                    if model.busy { ProgressView() }
+                }.frame(minHeight: 48)
+            }
+            .disabled(model.busy || !model.online || model.state.projects.isEmpty)
+            .accessibilityIdentifier("drawerNewThread")
+            .padding(.horizontal, 20)
+            Divider().padding(.top, 8)
+            if model.state.threads.isEmpty {
+                ContentUnavailableView("A fresh conversation", systemImage: "bubble.left.and.bubble.right", description: Text("Connect your Mac, then start a thread."))
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 4) {
+                        ForEach(model.state.threads.reversed()) { thread in
+                            Button {
+                                Task { await model.focus(thread); close() }
+                            } label: {
+                                HStack(alignment: .top, spacing: 12) {
+                                    Image(systemName: thread.id == model.state.focus.threadID ? "bubble.left.fill" : "bubble.left")
+                                        .foregroundStyle(thread.id == model.state.focus.threadID ? Palette.teal : Palette.quiet)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(thread.name).foregroundStyle(Palette.ink).lineLimit(2)
+                                        Text(model.summary(for: thread)).font(.caption).foregroundStyle(Palette.quiet).lineLimit(2)
+                                    }
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.horizontal, 14).padding(.vertical, 12)
+                                .background(thread.id == model.state.focus.threadID ? Palette.teal.opacity(0.09) : .clear, in: RoundedRectangle(cornerRadius: 14))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("drawerThread_\(thread.id)")
+                        }
+                    }.padding(12)
+                }
+            }
+            Spacer(minLength: 0)
+            Text("Swipe left to close").font(.caption).foregroundStyle(Palette.quiet).padding(20)
+        }
+        .foregroundStyle(Palette.ink)
+        .background(Palette.background.ignoresSafeArea())
+        .shadow(color: .black.opacity(0.12), radius: 18, x: 8)
+        .accessibilityIdentifier("threadsDrawer")
+    }
+}
 struct ThreadsSheet: View {
     @Bindable var model: AppModel
     @Environment(\.dismiss) private var dismiss
